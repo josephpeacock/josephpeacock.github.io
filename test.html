@@ -173,16 +173,18 @@ async function handleSubmit(e) {
 
   const payload = {};
 
-  const inputs = form.querySelectorAll("input[data-round]");
-
+  const inputs = form.querySelectorAll("select");
+  console.log(inputs)
   inputs.forEach(input => {
+    console.log(input)
     const round = input.dataset.round;
     const day = input.dataset.day;
     const field = `${round}_${day}`;
     payload[field] = input.value;
   });
+  
 
-  await setDoc(doc(collection(db, "users"), name), payload);
+  await setDoc(doc(collection(db, "users"), name.trim()), payload);
 
   console.log("Saved:", name, payload);
 }
