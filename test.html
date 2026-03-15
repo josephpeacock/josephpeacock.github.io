@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<head>
+    <title>March Madness</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/css/bootstrap-theme.min.css" integrity="sha384-6pzBo3FDv/PJ8r2KRkGHifhEocL+1X2rVCTTkUfGk7/0pbek5mMa1upzvWbrUbOZ" crossorigin="anonymous">
+</head>
+<body>
+    <script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+  import { getFirestore, collection, getDocs, getDoc, setDoc, doc } from 'https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js'
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyDKYqqFlXRiBEz9Pqk8xhL7KVQIuBQ_7cM",
+    authDomain: "march-madness-52593.firebaseapp.com",
+    projectId: "march-madness-52593",
+    storageBucket: "march-madness-52593.firebasestorage.app",
+    messagingSenderId: "849040995616",
+    appId: "1:849040995616:web:ea9bacc135b7504d4a9345"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  // setup
+  const rounds_and_days = {
+    19: {
+        'round': 1,
+        'day': 1,
+        'locked': false
+    },
+    20: {
+        'round': 1,
+        'day': 2,
+        'locked': false
+    },
+    21: {
+        'round': 2,
+        'day': 1,
+        'locked': false
+    },
+    22: {
+        'round': 2,
+        'day': 2,
+        'locked': false
+    },
+    26: {
+        'round': 3,
+        'day': 1,
+        'alt': 'sweet sixteen',
+        'locked': false
+    },
+    27: {
+        'round': 3,
+        'day': 2,
+         'alt': 'sweet sixteen',
+         'locked': false
+    },
+    28: {
+        'round': 4,
+        'day': 1,
+         'alt': 'elite eight',
+         'locked': false
+    },
+    29: {
+        'round': 4,
+        'day': 2,
+         'alt': 'elite eight',
+         'locked': false
+    },
+    44: {
+        'round': 5,
+        'day': 1,
+         'alt': 'final four',
+         'locked': false
+    },
+    46: {
+        'round': 6,
+        'day': 1,
+         'alt': 'finals',
+         'locked': false
+    }
+  }
+   
+  const querySnapshot = await getDocs(collection(db, "users"));
+    querySnapshot.forEach((doc) => {
+    console.log(`${doc.id} => ${doc.data().name}, ${doc.data().day1}`);
+    });
+
+   window.doSomething = async function () {
+    const querySnapshot = await getDocs(collection(db, "users"));
+
+    querySnapshot.forEach((doc) => {
+      console.log(`${doc.id} => ${doc.data().name}, ${doc.data().day1}`);
+    });
+  };
+
+async function get_teams(round, day) {
+    const key = `${round}-${day}`;
+    const docRef = doc(db, 'teams', key);
+    const data = await getDoc(docRef);
+    if (data.data()) {
+    const teams = data.data().teams.split(',')
+    console.log(`get_teams ${teams}`)
+    return teams
+    }
+    else return null
+  }
+
+
+async function buildForm(data) {
+  const form = document.createElement("form");
+
+  const items = Object.values(data).sort((a, b) => a.round - b.round);
+
+  const name_label = document.createElement("label");
+  name_label.textContent = "Your name: "
+  const name_input = document.createElement("input");
+  name_input.name = 'name'
+  name_label.appendChild(name_input);
+  form.appendChild(name_label);
+  form.appendChild(document.createElement("br"));
+
+for (const item of items) {
+    const teams = await get_teams(item.round, item.day)
+    console.log(teams)
+    if (teams && !item.locked) {
+        const name = item.alt && item.alt.trim()
+        ? item.alt
+        : `round ${item.round}, day ${item.day}`;
+
+        const label = document.createElement("label");
+        label.textContent = name + ": ";
+
+        const input = document.createElement("select");
+        teams.forEach(team => {
+            const option = document.createElement("option")
+            option.value = team
+            option.textContent = team
+            input.appendChild(option)
+        });
+        
+        input.name = name;
+        input.dataset.round = item.round;
+        input.dataset.day = item.day;
+
+        label.appendChild(input);
+        form.appendChild(label);
+        form.appendChild(document.createElement("br"));
+    }
+  };
+
+
+
+  const submit = document.createElement("button");
+  submit.type = "submit";
+  submit.textContent = "Save";
+  form.appendChild(submit);
+
+  form.addEventListener("submit", handleSubmit);
+
+  return form;
+}
+
+async function handleSubmit(e) {
+  e.preventDefault();
+
+  const form = e.target;
+  const name = form.elements["name"].value;
+
+  const payload = {};
+
+  const inputs = form.querySelectorAll("input[data-round]");
+
+  inputs.forEach(input => {
+    const round = input.dataset.round;
+    const day = input.dataset.day;
+    const field = `${round}_${day}`;
+    payload[field] = input.value;
+  });
+
+  await setDoc(doc(collection(db, "users"), name), payload);
+
+  console.log("Saved:", name, payload);
+}
+
+  const form = await buildForm(rounds_and_days);
+  document.getElementById("predictions").appendChild(form);
+
+
+
+async function buildResultsTable(db, name, rounds_and_days) {
+  const table = document.createElement("table");
+
+  // header
+  const header = document.createElement("tr");
+
+  const h1 = document.createElement("th");
+  h1.textContent = "Round";
+
+  const h2 = document.createElement("th");
+  h2.textContent = "Selection";
+
+  header.appendChild(h1);
+  header.appendChild(h2);
+  table.appendChild(header);
+
+  // get firestore document
+  const docRef = doc(db, "users", name);
+  const snap = await getDoc(docRef);
+
+  const data = snap.exists() ? snap.data() : {};
+
+  const items = Object.values(rounds_and_days).sort(
+    (a, b) => a.round - b.round || a.day - b.day
+  );
+
+  for (const item of items) {
+    const key = `${item.round}_${item.day}`;
+    const value = data[key] || "";
+
+    const row = document.createElement("tr");
+
+    const roundDay = document.createElement("td");
+    roundDay.style.paddingRight = '10px';
+    roundDay.textContent = ""
+    if (item.alt) {
+        roundDay.textContent = `${item.alt}\t`
+    } else {
+        roundDay.textContent = `Round ${item.round}, Day ${item.day}\t`;
+    }
+    
+
+    const pick = document.createElement("td");
+    pick.textContent = value;
+
+    row.appendChild(roundDay);
+    row.appendChild(pick);
+    table.appendChild(row);
+  }
+
+  return table;
+}
+
+async function createNameSelectorForm(db, rounds_and_days, container) {
+  const form = document.createElement("form");
+
+  const label = document.createElement("label");
+  label.textContent = "Select Name: ";
+
+  const select = document.createElement("select");
+  select.name = "name";
+  label.appendChild(select);
+  form.appendChild(label);
+
+  form.appendChild(document.createElement("br"));
+
+  const submit = document.createElement("button");
+  submit.type = "submit";
+  submit.textContent = "Show Predictions";
+  form.appendChild(submit);
+
+  container.appendChild(form);
+
+  const keys = (await getDocs(collection(db, "users"))).docs.map(d => d.id);
+
+  keys.forEach(key => {
+    const option = document.createElement("option");
+    option.value = key;
+    option.textContent = key;
+    select.appendChild(option);
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    // Remove previous table if exists
+    const existingTable = container.querySelector("table");
+    if (existingTable) existingTable.remove();
+
+    const selectedName = select.value;
+    const table = await buildResultsTable(db, selectedName, rounds_and_days);
+    container.appendChild(table);
+  });
+}
+
+const container = document.getElementById("form-container");
+await createNameSelectorForm(db, rounds_and_days, container);
+</script>
+
+<div id="predictions"></div>
+</br>
+<div id="form-container"> </div>
+
+</body>
+
+
